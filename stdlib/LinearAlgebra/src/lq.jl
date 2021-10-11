@@ -43,28 +43,31 @@ julia> l == S.L &&  q == S.Q
 true
 ```
 """
-struct LQ{T,S<:AbstractMatrix{T}} <: Factorization{T}
+struct LQ{T,S<:AbstractMatrix{T},C<:AbstractVector{T}} <: Factorization{T}
     factors::S
-    τ::Vector{T}
+    τ::C
 
-    function LQ{T,S}(factors, τ) where {T,S<:AbstractMatrix{T}}
+    function LQ{T,S,C}(factors, τ) where {T,S<:AbstractMatrix{T},C<:AbstractVector{T}}
         require_one_based_indexing(factors)
-        new{T,S}(factors, τ)
+        new{T,S,C}(factors, τ)
     end
 end
-LQ(factors::AbstractMatrix{T}, τ::Vector{T}) where {T} = LQ{T,typeof(factors)}(factors, τ)
+LQ(factors::AbstractMatrix{T}, τ::AbstractVector{T}) where {T} = LQ{T,typeof(factors),typeof(τ)}(factors, τ)
 function LQ{T}(factors::AbstractMatrix, τ::AbstractVector) where {T}
-    LQ(convert(AbstractMatrix{T}, factors), convert(Vector{T}, τ))
+    LQ(convert(AbstractMatrix{T}, factors), convert(AbstractVector{T}, τ))
 end
+# backwards-compatible constructors (remove with Julia 2.0)
+@deprecate(LQ{T,S}(factors::AbstractMatrix{T}, τ::AbstractVector{T}) where {T,S},
+           LQ{T,S,typeof(τ)}(factors, τ))
 
 # iteration for destructuring into components
 Base.iterate(S::LQ) = (S.L, Val(:Q))
 Base.iterate(S::LQ, ::Val{:Q}) = (S.Q, Val(:done))
 Base.iterate(S::LQ, ::Val{:done}) = nothing
 
-struct LQPackedQ{T,S<:AbstractMatrix{T}} <: AbstractMatrix{T}
+struct LQPackedQ{T,S<:AbstractMatrix{T},C<:AbstractVector{T}} <: AbstractMatrix{T}
     factors::S
-    τ::Vector{T}
+    τ::C
 end
 
 
@@ -134,7 +137,7 @@ Array(A::LQ) = Matrix(A)
 
 adjoint(A::LQ) = Adjoint(A)
 Base.copy(F::Adjoint{T,<:LQ{T}}) where {T} =
-    QR{T,typeof(F.parent.factors)}(copy(adjoint(F.parent.factors)), copy(F.parent.τ))
+    QR{T,typeof(F.parent.factors),typeof(F.parent.τ)}(copy(adjoint(F.parent.factors)), copy(F.parent.τ))
 
 function getproperty(F::LQ, d::Symbol)
     m, n = size(F)
